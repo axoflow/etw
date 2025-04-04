@@ -21,6 +21,7 @@ import "C"
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -464,4 +465,55 @@ func eventDescriptorToGo(descriptor C.EVENT_DESCRIPTOR) EventDescriptor {
 		Task:    uint16(descriptor.Task),
 		Keyword: uint64(descriptor.Keyword),
 	}
+}
+
+func extractProviderData(buffer []byte, info C.TRACE_PROVIDER_INFO) (windows.GUID, string) {
+	namePtr := uintptr(unsafe.Pointer(&buffer[0])) + uintptr(info.ProviderNameOffset)
+	providerName := windows.UTF16PtrToString((*uint16)(unsafe.Pointer(namePtr)))
+	guid := *(*windows.GUID)(unsafe.Pointer(&info.ProviderGuid))
+	guidClone, _ := windows.GUIDFromString(guid.String())
+
+	// Return deep clones so they are valid without the backing buffer
+	return guidClone, strings.Clone(providerName)
+}
+
+func GetProviders() (map[string]windows.GUID, error) {
+	providers := make(map[string]windows.GUID)
+
+	var requiredSize C.ULONG
+	if err := windows.Errno(C.TdhEnumerateProviders(nil, &requiredSize)); err != C.ERROR_INSUFFICIENT_BUFFER {
+		return providers, err
+	}
+
+	buffer := make([]byte, requiredSize)
+	if err := windows.Errno(C.TdhEnumerateProviders((*C.PROVIDER_ENUMERATION_INFO)(unsafe.Pointer(&buffer[0])), &requiredSize)); err != C.ERROR_SUCCESS {
+		return providers, err
+	}
+
+	provEnum := (*C.PROVIDER_ENUMERATION_INFO)(unsafe.Pointer(&buffer[0]))
+
+	numProviders := int(provEnum.NumberOfProviders)
+	infoPtr := unsafe.Pointer(&provEnum.TraceProviderInfoArray[0])
+	size := unsafe.Sizeof(provEnum.TraceProviderInfoArray[0])
+
+	for i := 0; i < numProviders; i++ {
+		entry := (*C.TRACE_PROVIDER_INFO)(unsafe.Pointer(uintptr(infoPtr) + uintptr(i)*size))
+		guid, name := extractProviderData(buffer, *entry)
+		providers[name] = guid
+	}
+
+	return providers, nil
+}
+
+func ProviderGUIDFromString(provider string) (*windows.GUID, error) {
+	providers, err := GetProviders()
+	if err != nil {
+		return nil, err
+	}
+
+	guid, ok := providers[provider]
+	if !ok {
+		return nil, fmt.Errorf("provider not found: %v", provider)
+	}
+	return &guid, nil
 }
