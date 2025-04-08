@@ -6,14 +6,23 @@ package etw
 	#include "session.h"
 */
 import "C"
+
 import (
+	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
+
+type GUIDWrapper windows.GUID
+
+func (g GUIDWrapper) MarshalJSON() ([]byte, error) {
+	return json.Marshal(windows.GUID(g).String())
+}
 
 // Event is a single event record received from ETW provider. The only thing
 // that is parsed implicitly is an EventHeader (which just translated from C
@@ -39,8 +48,8 @@ type EventHeader struct {
 	ProcessID uint32
 	TimeStamp time.Time
 
-	ProviderID windows.GUID
-	ActivityID windows.GUID
+	ProviderID GUIDWrapper
+	ActivityID GUIDWrapper
 
 	Flags         uint16
 	KernelTime    uint32
