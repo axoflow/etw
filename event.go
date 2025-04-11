@@ -429,7 +429,7 @@ func (p *propertyParser) parseSimpleType(i int) (string, error) {
 retryLoop:
 	for {
 		r0, _, _ := tdhFormatProperty.Call(
-			uintptr(unsafe.Pointer(p.record)),
+			uintptr(unsafe.Pointer(p.info)),
 			uintptr(mapInfo),
 			p.ptrSize,
 			inType,
