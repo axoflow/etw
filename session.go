@@ -445,8 +445,8 @@ func eventHeaderToGo(header C.EVENT_HEADER) EventHeader {
 		ThreadID:        uint32(header.ThreadId),
 		ProcessID:       uint32(header.ProcessId),
 		TimeStamp:       stampToTime(C.GetTimeStamp(header)),
-		ProviderID:      windowsGUIDToGo(header.ProviderId),
-		ActivityID:      windowsGUIDToGo(header.ActivityId),
+		ProviderID:      GUIDWrapper(windowsGUIDToGo(header.ProviderId)),
+		ActivityID:      GUIDWrapper(windowsGUIDToGo(header.ActivityId)),
 
 		Flags:         uint16(header.Flags),
 		KernelTime:    uint32(C.GetKernelTime(header)),
