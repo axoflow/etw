@@ -400,9 +400,14 @@ var (
 // parseSimpleType wraps TdhFormatProperty to get rendered to string value of
 // @i-th event property.
 func (p *propertyParser) parseSimpleType(i int) (string, error) {
-	mapInfo, err := getMapInfo(p.record, p.info, i)
-	if err != nil {
-		return "", fmt.Errorf("failed to get map info; %w", err)
+	mapNameOffset := C.GetMapNameOffset(p.info, C.int(i))
+	var mapInfo unsafe.Pointer
+	if mapNameOffset != 0 {
+		info, err := getMapInfo(p.record, p.info, i)
+		if err != nil {
+			return "", fmt.Errorf("failed to get map info; %w", err)
+		}
+		mapInfo = info
 	}
 
 	var propertyLength C.uint
@@ -424,7 +429,7 @@ func (p *propertyParser) parseSimpleType(i int) (string, error) {
 retryLoop:
 	for {
 		r0, _, _ := tdhFormatProperty.Call(
-			uintptr(unsafe.Pointer(p.record)),
+			uintptr(unsafe.Pointer(p.info)),
 			uintptr(mapInfo),
 			p.ptrSize,
 			inType,
@@ -504,8 +509,12 @@ func (p *propertyParser) getOpcodeName() string {
 // If that mapping exists, function extracts it and returns a pointer to the buffer with
 // extracted info. If no mapping defined, function can legitimately return `nil, nil`.
 func getMapInfo(event C.PEVENT_RECORD, info C.PTRACE_EVENT_INFO, i int) (unsafe.Pointer, error) {
-	mapName := C.GetMapName(info, C.int(i))
+	offset := C.GetMapNameOffset(info, C.int(i))
+	if offset == 0 {
+		return nil, nil
+	}
 
+	mapName := C.GetMapName(info, C.int(i))
 	// Query map info if any exists.
 	var mapSize C.ulong
 	ret := C.TdhGetEventMapInformation(event, mapName, nil, &mapSize)

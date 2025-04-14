@@ -113,6 +113,10 @@ LPWSTR GetMapName(PTRACE_EVENT_INFO info, int i) {
     return (LPWSTR)((PBYTE)(info) + info->EventPropertyInfoArray[i].nonStructType.MapNameOffset);
 }
 
+ULONG GetMapNameOffset(PTRACE_EVENT_INFO info, int i) {
+    return info->EventPropertyInfoArray[i].nonStructType.MapNameOffset;
+}
+
 BOOL PropertyIsStruct(PTRACE_EVENT_INFO info, int i) {
     return (info->EventPropertyInfoArray[i].Flags & PropertyStruct) == PropertyStruct;
 }

@@ -29,6 +29,7 @@ ULONGLONG GetPropertyName(PTRACE_EVENT_INFO info, int idx);
 USHORT GetInType(PTRACE_EVENT_INFO info, int idx);
 USHORT GetOutType(PTRACE_EVENT_INFO info, int idx);
 LPWSTR GetMapName(PTRACE_EVENT_INFO info, int idx);
+ULONG GetMapNameOffset(PTRACE_EVENT_INFO info, int idx);
 int GetStructStartIndex(PTRACE_EVENT_INFO info, int idx);
 int GetStructLastIndex(PTRACE_EVENT_INFO info, int idx);
 BOOL PropertyIsStruct(PTRACE_EVENT_INFO info, int idx);
