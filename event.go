@@ -6,14 +6,23 @@ package etw
 	#include "session.h"
 */
 import "C"
+
 import (
+	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
+
+type GUIDWrapper windows.GUID
+
+func (g GUIDWrapper) MarshalJSON() ([]byte, error) {
+	return json.Marshal(windows.GUID(g).String())
+}
 
 // Event is a single event record received from ETW provider. The only thing
 // that is parsed implicitly is an EventHeader (which just translated from C
@@ -39,8 +48,8 @@ type EventHeader struct {
 	ProcessID uint32
 	TimeStamp time.Time
 
-	ProviderID windows.GUID
-	ActivityID windows.GUID
+	ProviderID GUIDWrapper
+	ActivityID GUIDWrapper
 
 	Flags         uint16
 	KernelTime    uint32
@@ -121,6 +130,12 @@ func (e *Event) EventProperties() (map[string]interface{}, error) {
 		}
 		properties[name] = value
 	}
+	properties["KeywordsName"] = p.getKeywordsName()
+	properties["ProviderName"] = p.getProviderName()
+	properties["LevelName"] = p.getLevelName()
+	properties["ChannelName"] = p.getChannelName()
+	properties["TaskName"] = p.getTaskName()
+	properties["OpcodeName"] = p.getOpcodeName()
 	return properties, nil
 }
 
@@ -447,6 +462,42 @@ retryLoop:
 	p.data += uintptr(userDataConsumed)
 
 	return createUTF16String(uintptr(unsafe.Pointer(&formattedData[0])), int(formattedDataSize)), nil
+}
+
+func (p *propertyParser) getOffsetNameValue(offset C.ULONG) string {
+	// Make sure that only valid offsets are used.
+	// This is because there are fields that are only set for specific events.
+	if offset == 0 {
+		return ""
+	}
+
+	value := (*uint16)(unsafe.Pointer(uintptr(unsafe.Pointer(p.info)) + uintptr(offset)))
+
+	return strings.TrimSpace(windows.UTF16PtrToString(value))
+}
+
+func (p *propertyParser) getKeywordsName() string {
+	return p.getOffsetNameValue(p.info.KeywordsNameOffset)
+}
+
+func (p *propertyParser) getProviderName() string {
+	return p.getOffsetNameValue(p.info.ProviderNameOffset)
+}
+
+func (p *propertyParser) getLevelName() string {
+	return p.getOffsetNameValue(p.info.LevelNameOffset)
+}
+
+func (p *propertyParser) getChannelName() string {
+	return p.getOffsetNameValue((p.info.ChannelNameOffset))
+}
+
+func (p *propertyParser) getTaskName() string {
+	return p.getOffsetNameValue((p.info.TaskNameOffset))
+}
+
+func (p *propertyParser) getOpcodeName() string {
+	return p.getOffsetNameValue((p.info.OpcodeNameOffset))
 }
 
 // getMapInfo retrieve the mapping between the @i-th field and the structure it represents.
